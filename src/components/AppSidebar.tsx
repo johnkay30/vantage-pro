@@ -29,17 +29,17 @@ export function Sidebar({ isDark, setIsDark }: SidebarProps) {
   // Local state to control the popover visibility
   const [showSettings, setShowSettings] = useState(false);
 
-  const menuItems = [
-    { icon: Home, label: "Home", path: "/" },
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-    { icon: UploadCloud, label: "Upload", path: "/upload" },
-    { icon: Wand2, label: "Clean Engine", path: "/clean" },
-  ];
+ const menuItems = [
+  { icon: Home, label: "Home", path: "/" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: UploadCloud, label: "Upload", path: "/upload" },
+  { icon: Wand2, label: "Data Lab", path: "/clean" }, // Changed 'Clean Engine' to 'Data Lab'
+];
 
   return (
     <div className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-screen flex flex-col sticky top-0 z-30 transition-colors duration-300">
       <div className="p-6">
-        {/* Brand Logo - SCRUB.AI */}
+        {/* Brand Logo - ANALYTICS.AI */}
         <div className="flex items-center gap-3 px-2 mb-8 cursor-pointer" onClick={() => navigate('/')}>
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
             <Database className="w-5 h-5 text-white" />
@@ -146,7 +146,7 @@ export function Sidebar({ isDark, setIsDark }: SidebarProps) {
               </div>
 
               <p className="text-[10px] text-slate-400 italic text-center pt-2">
-                &copy; 2026 Scrub.AI Analytics
+                &copy; 2026 Analytic.ai Insights BI
               </p>
             </div>
           </div>
