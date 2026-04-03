@@ -45,7 +45,7 @@ export function Sidebar({ isDark, setIsDark }: SidebarProps) {
             <Database className="w-5 h-5 text-white" />
           </div>
           <span className="font-black text-xl tracking-tighter text-slate-900 dark:text-white">
-            SCRUB<span className="text-indigo-600">.AI</span>
+            ANALYTICS<span className="text-indigo-600">.AI</span>
           </span>
         </div>
 

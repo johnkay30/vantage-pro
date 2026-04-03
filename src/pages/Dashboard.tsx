@@ -1,240 +1,150 @@
-import React, { useMemo, useState, useRef, useEffect, memo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area,
-  LabelList, ScatterChart, Scatter, ZAxis, ComposedChart,
-  FunnelChart, Funnel
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, 
+  AreaChart, Area, LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, Radar, LabelList, ComposedChart
 } from 'recharts';
-import { useData } from '../context/DataContext';
-import { formatForCharts } from '../lib/utils';
-import { 
-  Edit3, FileText, Printer, Filter, DollarSign, TrendingUp, 
-  Users, RefreshCcw, Target, BrainCircuit, Activity, Palette, Globe,
-  Loader2, Database, Zap, Map as MapIcon, Share2
-} from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { useData, THEMES } from '../context/DataContext';
+import { Palette, Edit3, Filter, LayoutDashboard, Activity, AlertCircle } from 'lucide-react';
 
 const Dashboard = () => {
-  const context = useData();
-  
-  // Guard against undefined context
-  if (!context) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-        <p className="text-slate-400 font-bold animate-pulse">CONNECTING TO DATA ENGINE...</p>
-      </div>
-    );
-  }
+  const { data, filteredData, config, filterOptions, activeFilters, setActiveFilters, customTitles, setCustomTitles, kpis, activeTheme, setActiveTheme, cleanNum, formatNumber } = useData();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { 
-    filteredData = [], 
-    config, 
-    filterOptions = {}, 
-    activeFilters = {}, 
-    setActiveFilters 
-  } = context;
-
-  const dashboardRef = useRef<HTMLDivElement>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [theme, setTheme] = useState({ 
-    globalBg: "#F8FAFC", cardBg: "#ffffff", accent: "#3B82F6", textMain: "#0F172A" 
-  });
-
-  const palettes = [
-    { name: "Slate", global: "#F8FAFC", card: "#ffffff", accent: "#3B82F6" },
-    { name: "Midnight", global: "#0F172A", card: "#1E293B", accent: "#38BDF8" },
-    { name: "Emerald", global: "#F0FDF4", card: "#ffffff", accent: "#10B981" },
-    { name: "Royal", global: "#F5F3FF", card: "#ffffff", accent: "#7C3AED" },
-    { name: "Crimson", global: "#FFF1F2", card: "#ffffff", accent: "#E11D48" },
-    { name: "Gold", global: "#FAF7F0", card: "#ffffff", accent: "#B89150" }
-  ];
-
-  // Logic to handle "Data Processing" visuals
-  useEffect(() => {
-    setIsProcessing(true);
-    const timer = setTimeout(() => setIsProcessing(false), 600);
-    return () => clearTimeout(timer);
-  }, [filteredData]);
+  const colors = THEMES[activeTheme];
 
   const chartData = useMemo(() => {
-    if (!config?.xKey || !config?.yKey || filteredData.length === 0) return [];
-    return formatForCharts(filteredData, config.xKey, config.yKey);
+    if (!config?.xKey || filteredData.length === 0) return [];
+    return filteredData.slice(0, 12).map((item: any) => ({
+      name: String(item[config.xKey]).substring(0, 10), 
+      value: cleanNum(item[config.yKey]),
+      v2: cleanNum(item[config.yKey]) * 0.7
+    }));
   }, [filteredData, config]);
 
-  const totalValue = useMemo(() => {
-    if (!config?.yKey) return 0;
-    return filteredData.reduce((acc, curr) => acc + (Number(curr[config.yKey]) || 0), 0);
-  }, [filteredData, config]);
-
-  const COLORS = [theme.accent, '#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0'];
-
-  const exportToPDF = async () => {
-    if (!dashboardRef.current) return;
-    const canvas = await html2canvas(dashboardRef.current, { backgroundColor: theme.globalBg, scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    pdf.addImage(imgData, 'PNG', 0, 0, 210, (canvas.height * 210) / canvas.width);
-    pdf.save(`VantagePro_Report.pdf`);
+  const handleRename = (id: string, val: string) => {
+    setCustomTitles({ ...customTitles, [id]: val });
+    setEditingId(null);
   };
 
-  const CardWrapper = ({ title, children }: any) => (
-    <div className="p-8 rounded-[2.5rem] border border-slate-200/50 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{title}</h3>
-        <Zap size={12} className="text-slate-300" />
-      </div>
-      <div className="h-[300px] w-full">{children}</div>
+  const DynamicHeader = ({ id, title, small = false }: any) => (
+    <div className={`flex items-center gap-2 group ${small ? 'justify-center mb-1' : 'mb-3 justify-between'}`}>
+      {editingId === id ? (
+        <input autoFocus className="bg-slate-100 p-0.5 font-black uppercase text-[8px] w-full rounded outline-indigo-500" onBlur={(e) => handleRename(id, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleRename(id, e.currentTarget.value)} defaultValue={title} />
+      ) : (
+        <h3 className={`${small ? 'text-[7px]' : 'text-[9px]'} font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 truncate`}>
+          {title} <Edit3 size={8} className="opacity-0 group-hover:opacity-100 cursor-pointer text-indigo-500 shrink-0" onClick={() => setEditingId(id)}/>
+        </h3>
+      )}
     </div>
   );
 
-  // --- LOADING SCREEN (Shown when no file is uploaded yet) ---
-  if (!config || filteredData.length === 0) {
+  if (!data || data.length === 0) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6" style={{ backgroundColor: theme.globalBg }}>
-        <div className="p-10 rounded-[3rem] bg-white shadow-2xl flex flex-col items-center border border-slate-100">
-            <div className="p-5 rounded-full bg-blue-50 mb-4">
-                <Database className="text-blue-500 animate-bounce" size={48} />
-            </div>
-            <h2 className="text-xl font-black uppercase tracking-widest text-slate-700">Awaiting Dataset</h2>
-            <p className="text-slate-400 text-xs mt-2">Upload a CSV/JSON file to activate Vantage Pro.</p>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center text-slate-300 bg-[#F8FAFC]">
+        <AlertCircle size={48} className="mb-4 opacity-20" />
+        <h2 className="text-xl font-black uppercase tracking-[0.3em]">Awaiting Data</h2>
       </div>
     );
   }
 
   return (
-    <div ref={dashboardRef} className="p-10 min-h-screen space-y-10 transition-all duration-500" style={{ backgroundColor: theme.globalBg, color: theme.textMain }}>
-      
-      {/* BRAND HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b pb-8 border-slate-200/50">
-        <div>
-          <div className="flex items-center gap-3 font-black text-3xl tracking-tighter uppercase" style={{ color: theme.accent }}>
-            <Activity size={32} strokeWidth={3} /> VANTAGE PRO
-          </div>
-          <div className="flex items-center gap-4 mt-2">
-            <span className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em]">Institutional Report</span>
-            <span className="h-4 w-[1px] bg-slate-200"></span>
-            <span className="flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              {isProcessing ? 'CALCULATING...' : 'LIVE DATA STREAM'}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 print:hidden">
-          <div className="flex items-center gap-1.5 bg-white p-2 rounded-2xl shadow-sm border border-slate-200 mr-2">
-            <Palette size={14} className="text-slate-400 mx-2" />
-            {palettes.map((p) => (
-              <button key={p.name} onClick={() => setTheme({...theme, globalBg: p.global, cardBg: p.card, accent: p.accent, textMain: p.global === "#0F172A" ? "#F8FAFC" : "#0F172A"})} className="w-5 h-5 rounded-full border border-white transition-all hover:scale-125 ring-1 ring-slate-100 shadow-sm" style={{ backgroundColor: p.accent }} />
-            ))}
-          </div>
-          <button onClick={() => window.print()} className="bg-white border border-slate-200 text-slate-700 p-3 px-5 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Printer size={16} /> PRINT</button>
-          <button onClick={exportToPDF} className="p-3 px-6 rounded-xl font-bold text-xs flex items-center gap-2 text-white shadow-lg transition-all" style={{ backgroundColor: theme.accent }}><FileText size={16} /> EXPORT PDF</button>
-        </div>
-      </div>
-
-      {/* KPI GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[
-          { label: "Aggregate Valuation", val: `$${(totalValue/1000).toFixed(1)}k`, icon: <DollarSign/> },
-          { label: "Data Sample Size", val: filteredData.length.toLocaleString(), icon: <Activity/> },
-          { label: "Engine Status", val: "Optimal", icon: <Zap/> },
-          { label: "Market Reach", val: "Global", icon: <Globe/> }
-        ].map((kpi, i) => (
-          <div key={i} className="p-6 rounded-3xl border border-slate-200/50 shadow-sm flex items-center gap-4 transition-all hover:scale-105" style={{ backgroundColor: theme.cardBg }}>
-            <div className="p-3 rounded-xl" style={{ backgroundColor: theme.globalBg, color: theme.accent }}>{kpi.icon}</div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{kpi.label}</p>
-              <h3 className="text-xl font-bold">{kpi.val}</h3>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* OMNI-CHART MATRIX */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity duration-300 ${isProcessing ? 'opacity-30' : 'opacity-100'}`}>
+    <div className="min-h-screen bg-[#F8FAFC] pt-12 pb-20 px-4">
+      <div className="max-w-[1600px] mx-auto space-y-6 animate-in fade-in duration-500">
         
-        <CardWrapper title="Clustered Column (2-D)">
-          <ResponsiveContainer>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.05} />
-              <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px'}} />
-              <Bar dataKey="value" fill={theme.accent} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardWrapper>
-
-        <CardWrapper title="Concentration (Doughnut)">
-          <ResponsiveContainer>
-            <PieChart>
-              <Pie data={chartData} innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value">
-                {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </CardWrapper>
-
-        <CardWrapper title="Distribution Funnel">
-          <ResponsiveContainer>
-            <FunnelChart>
-              <Tooltip />
-              <Funnel dataKey="value" data={chartData} isAnimationActive>
-                <LabelList position="right" fill={theme.textMain} stroke="none" dataKey="name" style={{ fontSize: '10px' }} />
-              </Funnel>
-            </FunnelChart>
-          </ResponsiveContainer>
-        </CardWrapper>
-
-        <CardWrapper title="Volatility (Scatter)">
-          <ResponsiveContainer>
-            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-              <CartesianGrid strokeOpacity={0.1} />
-              <XAxis dataKey="name" fontSize={10} />
-              <YAxis hide />
-              <ZAxis type="number" range={[100, 500]} />
-              <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-              <Scatter name="Data" data={chartData} fill={theme.accent} />
-            </ScatterChart>
-          </ResponsiveContainer>
-        </CardWrapper>
-
-        <CardWrapper title="Macro Area Trend">
-          <ResponsiveContainer>
-            <AreaChart data={chartData}>
-              <defs><linearGradient id="colorV" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={theme.accent} stopOpacity={0.3}/><stop offset="95%" stopColor={theme.accent} stopOpacity={0}/></linearGradient></defs>
-              <XAxis dataKey="name" fontSize={10} axisLine={false} />
-              <Tooltip />
-              <Area type="monotone" dataKey="value" stroke={theme.accent} strokeWidth={3} fill="url(#colorV)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </CardWrapper>
-
-        <CardWrapper title="Geospatial Mapping">
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-              <MapIcon size={64} className="text-slate-200 animate-pulse" />
-              <p className="text-[10px] font-bold text-slate-400 px-10 uppercase tracking-widest">Awaiting Geo-Location Injection</p>
+        {/* HEADER SECTION - REFINED H2/H3 SIZE + RENAME ICON */}
+        <div className="flex flex-col md:flex-row justify-between items-center border-b pb-6 border-slate-200 gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 group">
+              <div className="p-2.5 bg-indigo-600 rounded-xl shadow-lg shrink-0">
+                <LayoutDashboard className="text-white" size={20}/>
+              </div>
+              <div className="min-w-0 flex items-center gap-2">
+                {editingId === 'main' ? (
+                  <input autoFocus className="text-xl font-black uppercase bg-white border-b-2 border-indigo-500 outline-none" onBlur={(e) => handleRename('main', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleRename('main', e.currentTarget.value)} defaultValue={customTitles.main} />
+                ) : (
+                  <>
+                    <h2 className="text-xl md:text-2xl font-extrabold tracking-tight uppercase truncate text-slate-900">
+                      {customTitles.main}
+                    </h2>
+                    <button onClick={() => setEditingId('main')} className="p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                      <Edit3 size={16} className="text-slate-300 hover:text-indigo-500 transition-colors" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <p className="text-slate-400 font-bold text-[9px] uppercase tracking-[0.4em] mt-0.5 ml-[42px]">Global Intelligence Hub</p>
           </div>
-        </CardWrapper>
-      </div>
 
-      {/* INTELLIGENCE FOOTER */}
-      <div className="p-10 rounded-[3rem] border border-slate-200/50 flex flex-col md:flex-row items-center gap-10" style={{ backgroundColor: theme.cardBg }}>
-        <div className="p-6 rounded-full bg-blue-50">
-            <BrainCircuit size={48} className="text-blue-500" />
+          <div className="flex items-center bg-white p-2 rounded-xl border border-slate-100 shadow-sm gap-2 shrink-0">
+              <Palette size={14} className="text-slate-300"/>
+              <div className="flex gap-1">
+                {Object.keys(THEMES).map(t => (
+                  <button key={t} onClick={() => setActiveTheme(t)} className={`w-5 h-5 rounded-full border transition-all ${activeTheme === t ? 'scale-110 border-slate-900 shadow-md' : 'border-transparent'}`} style={{ backgroundColor: THEMES[t][0] }} />
+                ))}
+              </div>
+          </div>
         </div>
-        <div className="flex-1">
-            <h2 className="text-2xl font-black tracking-tight mb-2 uppercase">Neural Strategy Insight</h2>
-            <p className="text-slate-500 text-sm leading-relaxed">System analysis confirms high performance in the primary sectors. Funnel throughput remains at 82%. We recommend prioritizing the macro area trend for next quarter projections.</p>
-        </div>
-        <button className="p-4 px-10 rounded-2xl text-white font-bold text-sm shadow-xl hover:scale-105 transition-all" style={{ backgroundColor: theme.accent }}>ACTIVATE DEPLOYMENT</button>
-      </div>
 
-      <footer className="text-center py-12 border-t border-slate-200/30">
-        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">Vantage Pro Intelligence • Proprietary Build v4.5</p>
-      </footer>
+        {/* KPI CARDS - TIGHT SPACING */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {kpis.map((k: any, i: number) => (
+            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-50 shadow-sm text-center hover:shadow-md transition-all">
+              <DynamicHeader id={k.id} title={k.label} small />
+              <h4 className="text-2xl font-black text-slate-900 leading-none mb-1">{k.value}</h4>
+              <div className="h-1 w-6 mx-auto rounded-full" style={{backgroundColor: colors[i % 8]}}></div>
+            </div>
+          ))}
+        </div>
+
+        {/* COMPACT FILTERS */}
+        <div className="p-3 bg-white rounded-2xl border border-slate-100 flex items-center gap-3 px-6 overflow-x-auto no-scrollbar shadow-sm">
+          <div className="flex items-center gap-2 text-indigo-600 font-black text-[9px] uppercase tracking-widest shrink-0 mr-2">
+            <Filter size={14} /> Filters
+          </div>
+          {Object.entries(filterOptions).map(([col, opts]: any) => (
+            <select key={col} onChange={e => setActiveFilters({...activeFilters, [col]: e.target.value})} className="bg-slate-50 border-none rounded-lg p-2 px-4 text-[9px] font-bold uppercase outline-none cursor-pointer hover:bg-indigo-50 transition-colors shadow-inner">
+              <option value="All">All {col}</option>
+              {opts.map((o: any) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ))}
+        </div>
+
+        {/* CHART GRID - TIGHT GAP-4 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-2 bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+            <DynamicHeader id="c1" title={customTitles.c1} />
+            <div className="h-[280px]"><ResponsiveContainer><AreaChart data={chartData}><XAxis dataKey="name" hide /><YAxis hide/><Tooltip/><Area type="monotone" dataKey="value" stroke={colors[0]} strokeWidth={4} fill={colors[0]} fillOpacity={0.1}><LabelList dataKey="value" position="top" content={(p: any) => <text x={p.x} y={p.y - 10} fill={colors[0]} fontSize={10} fontWeight={900} textAnchor="middle">{formatNumber(p.value)}</text>}/></Area></AreaChart></ResponsiveContainer></div>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+            <DynamicHeader id="c2" title={customTitles.c2} />
+            <div className="h-[280px]"><ResponsiveContainer><PieChart><Pie data={chartData} innerRadius={60} outerRadius={85} paddingAngle={5} dataKey="value">{chartData.map((_, i) => <Cell key={i} fill={colors[i % 8]} />)}</Pie><Tooltip/></PieChart></ResponsiveContainer></div>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm flex flex-col justify-center text-center">
+            <Activity size={32} className="mx-auto mb-3 text-indigo-500 opacity-80" />
+            <DynamicHeader id="c5" title={customTitles.c5} small />
+            <h2 className="text-4xl font-black text-slate-900">{formatNumber(filteredData.length)}</h2>
+            <p className="text-[9px] font-black text-slate-400 uppercase mt-2 tracking-widest italic">Live Points</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+            <DynamicHeader id="c3" title={customTitles.c3} />
+            <div className="h-[280px]"><ResponsiveContainer><BarChart data={chartData}><Bar dataKey="value" fill={colors[1]} radius={[6,6,6,6]} barSize={18}><LabelList dataKey="value" position="top" content={(p: any) => <text x={p.x + p.width/2} y={p.y - 10} fill={colors[1]} fontSize={9} fontWeight="black" textAnchor="middle">{formatNumber(p.value)}</text>}/></Bar></BarChart></ResponsiveContainer></div>
+          </div>
+
+          <div className="lg:col-span-2 bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+            <DynamicHeader id="c4" title={customTitles.c4} />
+            <div className="h-[280px]"><ResponsiveContainer><ComposedChart data={chartData}><XAxis dataKey="name" hide/><Tooltip/><Bar dataKey="value" fill={colors[2]} barSize={15} radius={[8,8,0,0]}/><Line type="monotone" dataKey="v2" stroke={colors[3]} strokeWidth={3} dot={{r: 4, fill: colors[3]}}/></ComposedChart></ResponsiveContainer></div>
+          </div>
+
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-50 shadow-sm">
+            <DynamicHeader id="c8" title={customTitles.c8} />
+            <div className="h-[280px]"><ResponsiveContainer><RadarChart data={chartData}><PolarGrid/><PolarAngleAxis dataKey="name" fontSize={9}/><Radar dataKey="value" stroke={colors[4]} fill={colors[4]} fillOpacity={0.4}/></RadarChart></ResponsiveContainer></div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
